@@ -62,10 +62,7 @@ class GenerateAnswerNode(BaseNode):
         self.llm_model = node_config["llm_model"]
 
         if isinstance(node_config["llm_model"], ChatOllama):
-            if node_config.get("schema", None) is None:
-                self.llm_model.format = "json"
-            else:
-                self.llm_model.format = self.node_config["schema"].model_json_schema()
+            self.llm_model.format = "json"
 
         self.verbose = node_config.get("verbose", False)
         self.force = node_config.get("force", False)
@@ -77,10 +74,7 @@ class GenerateAnswerNode(BaseNode):
     def invoke_with_timeout(self, chain, inputs, timeout):
         """Helper method to invoke chain with timeout"""
         try:
-            start_time = time.time()
             response = chain.invoke(inputs)
-            if time.time() - start_time > timeout:
-                raise Timeout(f"Response took longer than {timeout} seconds")
             return response
         except Timeout as e:
             self.logger.error(f"Timeout error: {str(e)}")
@@ -180,6 +174,7 @@ class GenerateAnswerNode(BaseNode):
             template_merge_prompt = self.additional_info + template_merge_prompt
 
         if len(doc) == 1:
+            doc_content = doc[0] if isinstance(doc, list) else doc
             prompt = PromptTemplate(
                 template=template_no_chunks_prompt,
                 input_variables=["content", "question"],
@@ -193,7 +188,7 @@ class GenerateAnswerNode(BaseNode):
 
             try:
                 answer = self.invoke_with_timeout(
-                    chain, {"content": doc, "question": user_prompt}, self.timeout
+                    chain, {"content": doc_content, "question": user_prompt}, self.timeout
                 )
             except (Timeout, json.JSONDecodeError) as e:
                 error_msg = (
